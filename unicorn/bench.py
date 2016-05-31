@@ -7,38 +7,103 @@ PF_E = 0b001
 PF_W = 0b010
 PF_R = 0b100
 
+F_GRANULARITY = 0x8
+F_PROT_32 = 0x4
+F_LONG = 0x2
+F_AVAILABLE = 0x1
+
+A_PRESENT = 0x80
+
+A_PRIV_3 = 0x60
+A_PRIV_2 = 0x40
+A_PRIV_1 = 0x20
+A_PRIV_0 = 0x0
+
+A_CODE = 0x18
+A_DATA = 0x10
+A_TSS = 0x0
+A_GATE = 0x0
+
+A_DIR_BIT = 0x4
+A_CON_BIT = 0x4
+
+A_DATA_WRITABLE = 0x2
+A_CODE_READABLE = 0x2
+
+S_GDT = 0x0
+S_LDT = 0x4
+S_PRIV_3 = 0x3
+S_PRIV_2 = 0x2
+S_PRIV_1 = 0x1
+S_PRIV_0 = 0x0
+
+
 def aligned_size(size, page_size=0x1000):
     return (size//page_size + 1) * page_size
 
 def aligned_addr(addr, page_size=0x1000):
     return (addr//page_size) * page_size
 
+def create_gdt_entry(base, limit, access, flags):
+    to_ret = limit & 0xffff;
+    to_ret |= (base & 0xffffff) << 16;
+    to_ret |= (access & 0xff) << 40;
+    to_ret |= ((limit >> 16) & 0xf) << 48;
+    to_ret |= (flags & 0xff) << 52;
+    to_ret |= ((base >> 24) & 0xff) << 56;
+    return struct.pack('<Q',to_ret)
+
+def create_selector(idx, flags):
+    to_ret = flags
+    to_ret |= idx << 3
+    return to_ret
+
 class EmuElf:
     def __init__(self, fd):
-        self.uc = unicorn.Uc(unicorn.UC_ARCH_X86, unicorn.UC_MODE_64)
+        self.uc = unicorn.Uc(unicorn.UC_ARCH_X86, unicorn.UC_MODE_32)
         self.elffile = ELFFile(fd)
+        self.brk = 0x7f400000
 
         self._init_unicorn_from_elf(fd)
         self._init_stack()
         self._init_gdt()
-        self._init_tls()
+        self._init_segments_selectors()
 
-        self.uc.hook_add(unicorn.UC_HOOK_MEM_READ_UNMAPPED, self.on_fetch_unmapped)
-        self.uc.hook_add(unicorn.UC_HOOK_CODE, self.on_code)
+        # Exit code.
+        self.uc.mem_map(0x7f300000, 0x1000, unicorn.UC_PROT_EXEC)
 
-    def on_fetch_unmapped(self, uc, type, address, size, value, user_data):
-        print("On fetch unmapped: addr: 0x{:x}, rip: 0x{:x}, rbp: 0x{:x}, rsp: 0x{:x}".format(
+        #self.uc.hook_add(unicorn.UC_HOOK_MEM_UNMAPPED, self.on_unmapped)
+        #self.uc.hook_add(unicorn.UC_HOOK_CODE, self.on_code)
+        self.uc.hook_add(unicorn.UC_HOOK_INTR, self.on_intr)
+
+    def on_intr(self, uc, intno, user_data):
+        print("On intr: eip: 0x{:x}, eax: 0x{:x}, ebx: 0x{:x}".format(
+            self.uc.reg_read(unicorn.x86_const.UC_X86_REG_EIP),
+            self.uc.reg_read(unicorn.x86_const.UC_X86_REG_EAX),
+            self.uc.reg_read(unicorn.x86_const.UC_X86_REG_EBX)))
+
+        syscall = self.uc.reg_read(unicorn.x86_const.UC_X86_REG_EAX)
+        arg1 = self.uc.reg_read(unicorn.x86_const.UC_X86_REG_EBX)
+        if syscall == 0x2d: # sys_brk(size)
+            new_brk = arg1
+            size = new_brk - self.brk
+            if size > 0:
+                self.uc.mem_map(self.brk, size, unicorn.UC_PROT_READ | unicorn.UC_PROT_WRITE)
+                self.brk = new_brk
+            self.uc.reg_write(unicorn.x86_const.UC_X86_REG_EAX, self.brk)
+
+    def on_unmapped(self, uc, type, address, size, value, user_data):
+        print("On fetch unmapped: addr: 0x{:x}, eip: 0x{:x}, ebp: 0x{:x}, esp: 0x{:x}".format(
             address,
-            self.uc.reg_read(unicorn.x86_const.UC_X86_REG_RIP),
-            self.uc.reg_read(unicorn.x86_const.UC_X86_REG_RBP),
-            self.uc.reg_read(unicorn.x86_const.UC_X86_REG_RSP)))
+            self.uc.reg_read(unicorn.x86_const.UC_X86_REG_EIP),
+            self.uc.reg_read(unicorn.x86_const.UC_X86_REG_EBP),
+            self.uc.reg_read(unicorn.x86_const.UC_X86_REG_ESP)))
 
     def on_code(self, *args):
-        print("On code: rip: 0x{:x}, rbp: 0x{:x}, rsp: 0x{:x}".format(
-            self.uc.reg_read(unicorn.x86_const.UC_X86_REG_RIP),
-            self.uc.reg_read(unicorn.x86_const.UC_X86_REG_RBP),
-            self.uc.reg_read(unicorn.x86_const.UC_X86_REG_RSP)))
-
+        print("On code: eip: 0x{:x}, ebp: 0x{:x}, esp: 0x{:x}".format(
+            self.uc.reg_read(unicorn.x86_const.UC_X86_REG_EIP),
+            self.uc.reg_read(unicorn.x86_const.UC_X86_REG_EBP),
+            self.uc.reg_read(unicorn.x86_const.UC_X86_REG_ESP)))
 
     def _init_unicorn_from_elf(self, fd):
         for segment in self.elffile.iter_segments():
@@ -74,33 +139,66 @@ class EmuElf:
         self.uc.mem_map(self._sp - self._sp_size,
                         self._sp_size,
                         unicorn.UC_PROT_READ | unicorn.UC_PROT_WRITE)
-        self.uc.reg_write(unicorn.x86_const.UC_X86_REG_RSP, self._sp - 8)
 
-    def _init_tls(self):
-        self.tls_addr = 0x7f200000
-        self.uc.mem_map(self.tls_addr, 0x1000, unicorn.UC_PROT_READ | unicorn.UC_PROT_WRITE)
-        self.gdt_write(1, self.tls_addr, 0x1, 0x12, 0)
-        self.uc.reg_write(unicorn.x86_const.UC_X86_REG_FS, 1)
+    def _init_segments_selectors(self):
+        # TLS segments
+        self.tls_addr = 0x7f201000
+        self.uc.mem_map(self.tls_addr-0x1000, 0x2000, unicorn.UC_PROT_READ | unicorn.UC_PROT_WRITE)
 
-    # Inspired from https://github.com/lunixbochs/usercorn/tree/master/go/arch/x86/linux.go
-    def gdt_write(self, selector, base, limit, access, flags):
-        entry = limit & 0xffff
-        entry |= ((limit >> 16) & 0xF) << 48
-        entry |= (base & 0xFFFFFF) << 16
-        entry |= ((base >> 24) & 0xFF) << 56
-        entry |= (access & 0xFF) << 40
-        entry |= (flags & 0xFF) << 52
+        gdt_entry = create_gdt_entry(self.tls_addr, 0xfffff, A_PRESENT | A_PRIV_3 | A_DATA | A_DATA_WRITABLE, F_PROT_32 | F_GRANULARITY)
+        self.uc.mem_write(self.gdt_addr + 8 * 0x1, gdt_entry)
+        self.uc.reg_write(unicorn.x86_const.UC_X86_REG_GS, create_selector(0x1, S_PRIV_3))
 
-        self.uc.mem_write(self.gdt_addr + 8 * selector, struct.pack('<Q', entry))
+        # Code segment
+        gdt_entry = create_gdt_entry(0, 0xfffff, A_PRESENT | A_PRIV_3 | A_CODE | A_CODE_READABLE, F_PROT_32 | F_GRANULARITY)
+        self.uc.mem_write(self.gdt_addr + 8 * 0x2, gdt_entry)
+        self.uc.reg_write(unicorn.x86_const.UC_X86_REG_CS, create_selector(0x2, S_PRIV_3))
 
-    def call(self, fn_name):
+        # Stack segment
+        gdt_entry = create_gdt_entry(0, 0xfffff, A_PRESENT | A_PRIV_0 | A_DATA | A_DATA_WRITABLE, F_PROT_32 | F_GRANULARITY)
+        self.uc.mem_write(self.gdt_addr + 8 * 0x3, gdt_entry)
+        self.uc.reg_write(unicorn.x86_const.UC_X86_REG_SS, create_selector(0x3, S_PRIV_0))
+
+        # Data segments
+        gdt_entry = create_gdt_entry(0, 0xfffff, A_PRESENT | A_PRIV_3 | A_DATA | A_DATA_WRITABLE, F_PROT_32 | F_GRANULARITY)
+        self.uc.mem_write(self.gdt_addr + 8 * 0x4, gdt_entry)
+        self.uc.reg_write(unicorn.x86_const.UC_X86_REG_DS, create_selector(0x4, S_PRIV_3))
+        self.uc.reg_write(unicorn.x86_const.UC_X86_REG_ES, create_selector(0x4, S_PRIV_3))
+
+    def push(self, val):
+        self.uc.reg_write(unicorn.x86_const.UC_X86_REG_ESP, self.sp() - 4)
+        self.uc.mem_write(self.sp(), struct.pack('<I', val))
+
+    def sp(self):
+        return self.uc.reg_read(unicorn.x86_const.UC_X86_REG_ESP)
+
+    def init_state(self):
+        self.uc.reg_write(unicorn.x86_const.UC_X86_REG_ESP, self._sp)
+        self.push(struct.unpack('<I', 'emu\x00')[0])
+        arg0 = self.sp()
+        self.push(0)         # penv[0]
+        penv = self.sp()
+        self.push(0)         # argv[1]
+        self.push(arg0)      # argv[0]
+        argv = self.sp()
+        self.push(penv)      # penv
+        self.push(argv)      # argv
+        self.push(1)         # argc
+        self.call('__libc_csu_init')
+
+    def call(self, fn_name, until=None):
         func_addr = self._func_map[fn_name]
-        self.uc.emu_start(func_addr, 0)
+        until_addr = 0x7f300000
+        if until:
+            until_addr = self._func_map[until]
+        self.push(until_addr)
+        self.uc.emu_start(func_addr, until_addr)
 
-def run_benchmark(path, tests):
-    fd = open(path, 'rb')
+def test_unicorn(benchmark):
+    fd = open('./tests', 'rb')
     emu = EmuElf(fd)
-    emu.call('test_1')
+    print('Running constructor')
+    emu.init_state()
+    print('Running test_1')
+    benchmark(emu.call, 'test_1')
 
-if __name__ == '__main__':
-    run_benchmark(path='./tests', tests=['test_1'])

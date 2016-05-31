@@ -1,0 +1,9 @@
+altgraph==0.12
+docutils==0.12
+py==1.4.31
+pyelftools==0.23
+pytest==2.9.1
+pytest-benchmark==3.0.0
+statistics==1.0.3.5
+unicorn==1.0
+wheel==0.24.0
