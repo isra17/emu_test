@@ -194,11 +194,19 @@ class EmuElf:
         self.push(until_addr)
         self.uc.emu_start(func_addr, until_addr)
 
-def test_unicorn(benchmark):
-    fd = open('./tests', 'rb')
-    emu = EmuElf(fd)
-    print('Running constructor')
-    emu.init_state()
-    print('Running test_1')
-    benchmark(emu.call, 'test_1')
+def test_unicorn_1(benchmark):
+    with open('./tests', 'rb') as fd:
+        emu = EmuElf(fd)
+        print('Running constructor')
+        emu.init_state()
+        print('Running test_1')
+        benchmark(emu.call, 'test_1')
+
+def test_unicorn_3(benchmark):
+    with open('./tests', 'rb') as fd:
+        emu = EmuElf(fd)
+        print('Running constructor')
+        emu.init_state()
+        print('Running test_1')
+        benchmark(emu.call, 'test_3')
 
