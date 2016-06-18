@@ -20,7 +20,7 @@ int test_2() {
 }
 
 int test_3() {
-  return strcmp((char*)1, (char*)2);
+  return strcmp("This is a test", "This is a test");
 }
 
 }
