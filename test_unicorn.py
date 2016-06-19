@@ -124,6 +124,7 @@ class EmuElf:
                 self.uc.mem_write(segment.header.p_vaddr, segment.data())
 
         self._func_map = {}
+        self._object_map = {}
         for symbol in self.elffile.get_section_by_name('.symtab').iter_symbols():
             if symbol.entry.st_info.type == 'STT_FUNC':
                 self._func_map[symbol.name] = symbol.entry.st_value
@@ -198,5 +199,5 @@ def call_bench(emu):
 def test_unicorn(benchmark):
     with open('./bench', 'rb') as fd:
         emu = EmuElf(fd)
-        benchmark(call_bench)
+        benchmark(call_bench, emu)
 
