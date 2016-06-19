@@ -218,7 +218,7 @@ void sha256(unsigned char *hash, const unsigned char *data, int len)
 unsigned char result[32];
 
 int test1(char* data) {
-  return strcmp("asd", data);
+  return strncmp("asd", data, 3);
 }
 
 void test2(char* data) {
