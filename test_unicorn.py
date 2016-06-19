@@ -127,6 +127,8 @@ class EmuElf:
         for symbol in self.elffile.get_section_by_name('.symtab').iter_symbols():
             if symbol.entry.st_info.type == 'STT_FUNC':
                 self._func_map[symbol.name] = symbol.entry.st_value
+            if symbol.entry.st_info.type == 'STT_OBJECT':
+                self._object_map[symbol.name] = symbol.entry.st_value
 
     def _init_gdt(self):
         self.gdt_addr = 0x7f100000
@@ -172,21 +174,6 @@ class EmuElf:
     def sp(self):
         return self.uc.reg_read(unicorn.x86_const.UC_X86_REG_ESP)
 
-    def init_state(self):
-        self.uc.reg_write(unicorn.x86_const.UC_X86_REG_ESP, self._sp)
-        return
-        self.push(struct.unpack('<I', 'emu\x00')[0])
-        arg0 = self.sp()
-        self.push(0)         # penv[0]
-        penv = self.sp()
-        self.push(0)         # argv[1]
-        self.push(arg0)      # argv[0]
-        argv = self.sp()
-        self.push(penv)      # penv
-        self.push(argv)      # argv
-        self.push(1)         # argc
-        self.call('__libc_csu_init')
-
     def call(self, fn_name, until=None):
         func_addr = self._func_map[fn_name]
         until_addr = 0x7f300000
@@ -195,11 +182,21 @@ class EmuElf:
         self.push(until_addr)
         self.uc.emu_start(func_addr, until_addr)
 
-def test_unicorn_3(benchmark):
-    with open('./tests', 'rb') as fd:
+    def reset_sp(self):
+        self.uc.reg_write(unicorn.x86_const.UC_X86_REG_ESP, self._sp)
+
+    def read(self, addr, size):
+        return self.uc.mem_read(addr, size)
+
+def call_bench(emu):
+    emu.reset_sp()
+    emu.push(struct.unpack('<I', 'abc\x00')[0])
+    emu.push(emu.sp())
+    emu.call('test')
+    assert emu.read(emu._object_map['result'], 32) == ''
+
+def test_unicorn(benchmark):
+    with open('./bench', 'rb') as fd:
         emu = EmuElf(fd)
-        print('Running constructor')
-        emu.init_state()
-        print('Running test_1')
-        benchmark(emu.call, 'test_3')
+        benchmark(call_bench)
 
