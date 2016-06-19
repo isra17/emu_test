@@ -215,7 +215,7 @@ void sha256(unsigned char *hash, const unsigned char *data, int len)
 	memcpy(hash, S, len);
 }
 
-extern unsigned char result[32];
+unsigned char result[32];
 
 void test(char* data) {
   memset(result, 0, sizeof(result));
