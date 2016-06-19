@@ -1,5 +1,5 @@
 all:
-	g++ tests.cpp -o tests -static -m32
+	g++ sha256.c -o bench -static -m32
 
 test:
-	py.test --benchmark-only unicorn/bench.py
+	py.test --benchmark-only test_*.py

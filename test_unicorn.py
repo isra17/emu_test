@@ -174,6 +174,7 @@ class EmuElf:
 
     def init_state(self):
         self.uc.reg_write(unicorn.x86_const.UC_X86_REG_ESP, self._sp)
+        return
         self.push(struct.unpack('<I', 'emu\x00')[0])
         arg0 = self.sp()
         self.push(0)         # penv[0]
@@ -193,14 +194,6 @@ class EmuElf:
             until_addr = self._func_map[until]
         self.push(until_addr)
         self.uc.emu_start(func_addr, until_addr)
-
-def test_unicorn_1(benchmark):
-    with open('./tests', 'rb') as fd:
-        emu = EmuElf(fd)
-        print('Running constructor')
-        emu.init_state()
-        print('Running test_1')
-        benchmark(emu.call, 'test_1')
 
 def test_unicorn_3(benchmark):
     with open('./tests', 'rb') as fd:
