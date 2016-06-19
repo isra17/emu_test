@@ -218,7 +218,10 @@ void sha256(unsigned char *hash, const unsigned char *data, int len)
 unsigned char result[32];
 
 void test(char* data) {
+  char buf[32];
+  memset(buf, 0, sizeof(buf));
   memset(result, 0, sizeof(result));
+  strncpy(buf, data, sizeof(buf));
   sha256(result, (unsigned char*)data, strlen(data));
 }
 
