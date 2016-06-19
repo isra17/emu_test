@@ -217,11 +217,17 @@ void sha256(unsigned char *hash, const unsigned char *data, int len)
 
 unsigned char result[32];
 
-void test(char* data) {
+int test1(char* data) {
+  return strcmp("asd", data);
+}
+
+void test2(char* data) {
   unsigned char buf[32];
   memset(buf, 0, sizeof(buf));
   memset(result, 0, sizeof(result));
-  strncpy(buf, data, sizeof(buf));
+  size_t len = strnlen(data, 31);
+  memcpy(buf, data, len);
+  buf[len] = 0x80;
   sha256(result, buf, sizeof(buf));
 }
 

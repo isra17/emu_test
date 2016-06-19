@@ -194,7 +194,8 @@ def call_bench(emu):
     emu.push(struct.unpack('<I', 'abc\x00')[0])
     emu.push(emu.sp())
     emu.call('test')
-    assert emu.read(emu._object_map['result'], 32) == ''
+    assert str(emu.read(emu._object_map['result'], 32)).encode('hex') == \
+            '26426d7cb06a12643ccfe84107603083d835c37f000a12f734137a0c8df77f26'
 
 def test_unicorn(benchmark):
     with open('./bench', 'rb') as fd:
