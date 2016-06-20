@@ -13,7 +13,7 @@ int test1(char* data) {
 void test2(unsigned char* data) {
   SHA256_CTX ctx;
   sha256_init(&ctx);
-  sha256_update(&ctx, data, strlen((char*)data)+1);
+  sha256_update(&ctx, data, strlen((char*)data));
   sha256_final(&ctx, result);
 }
 
