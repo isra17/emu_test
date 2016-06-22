@@ -72,8 +72,8 @@ class EmuElf:
         # Exit code.
         self.uc.mem_map(0x7f300000, 0x1000, unicorn.UC_PROT_EXEC)
 
-        #self.uc.hook_add(unicorn.UC_HOOK_MEM_UNMAPPED, self.on_unmapped)
-        #self.uc.hook_add(unicorn.UC_HOOK_CODE, self.on_code)
+        self.uc.hook_add(unicorn.UC_HOOK_MEM_UNMAPPED, self.on_unmapped)
+        self.uc.hook_add(unicorn.UC_HOOK_CODE, self.on_code)
         self.uc.hook_add(unicorn.UC_HOOK_INTR, self.on_intr)
 
     def on_intr(self, uc, intno, user_data):
@@ -98,12 +98,15 @@ class EmuElf:
             self.uc.reg_read(unicorn.x86_const.UC_X86_REG_EIP),
             self.uc.reg_read(unicorn.x86_const.UC_X86_REG_EBP),
             self.uc.reg_read(unicorn.x86_const.UC_X86_REG_ESP)))
+        self.dump_stack()
 
     def on_code(self, *args):
         print("On code: eip: 0x{:x}, ebp: 0x{:x}, esp: 0x{:x}".format(
             self.uc.reg_read(unicorn.x86_const.UC_X86_REG_EIP),
             self.uc.reg_read(unicorn.x86_const.UC_X86_REG_EBP),
             self.uc.reg_read(unicorn.x86_const.UC_X86_REG_ESP)))
+        if self.uc.reg_read(unicorn.x86_const.UC_X86_REG_EIP) == 0x804be89:
+            self.dump_stack()
 
     def _init_unicorn_from_elf(self, fd):
         for segment in self.elffile.iter_segments():
@@ -182,6 +185,7 @@ class EmuElf:
             until_addr = self._func_map[until]
         self.push(until_addr)
         self.uc.emu_start(func_addr, until_addr)
+        return self.uc.reg_read(unicorn.x86_const.UC_X86_REG_EAX)
 
     def reset_sp(self):
         self.uc.reg_write(unicorn.x86_const.UC_X86_REG_ESP, self._sp)
@@ -189,16 +193,41 @@ class EmuElf:
     def read(self, addr, size):
         return self.uc.mem_read(addr, size)
 
-def call_bench(emu):
+    def dump_stack(self):
+        sp = self.sp()
+        while sp <= self._sp-4:
+            value, = struct.unpack('<I', self.read(sp, 4))
+            print('0x{:08x}: 0x{:08x}'.format(sp, value))
+            sp += 4
+
+
+def call_test1(emu):
+    emu.reset_sp()
+    emu.push(struct.unpack('<I', 'asd\x00')[0])
+    emu.push(emu.sp())
+    emu.push(emu.sp())
+    assert emu.call('test1') == 0
+
+    emu.reset_sp()
+    emu.push(struct.unpack('<I', 'foo\x00')[0])
+    emu.push(emu.sp())
+    assert emu.call('test1') != 0
+
+def call_test2(emu):
     emu.reset_sp()
     emu.push(struct.unpack('<I', 'abc\x00')[0])
     emu.push(emu.sp())
-    emu.call('test')
+    emu.call('test2')
     assert str(emu.read(emu._object_map['result'], 32)).encode('hex') == \
             '26426d7cb06a12643ccfe84107603083d835c37f000a12f734137a0c8df77f26'
 
-def test_unicorn(benchmark):
+def test_unicorn_1(benchmark):
     with open('./bench', 'rb') as fd:
         emu = EmuElf(fd)
-        benchmark(call_bench, emu)
+        benchmark(call_test1, emu)
+
+def test_unicorn_2(benchmark):
+    with open('./bench', 'rb') as fd:
+        emu = EmuElf(fd)
+        benchmark(call_test2, emu)
 
