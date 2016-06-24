@@ -261,10 +261,9 @@ def call_test2(emu):
     emu.reset_sp()
     emu.push(struct.unpack('<I', 'abc\x00')[0])
     emu.push(emu.sp())
-    UniDebug(emu)
     emu.call('test2')
     assert str(emu.read(emu._object_map['result'], 32)).encode('hex') == \
-            '26426d7cb06a12643ccfe84107603083d835c37f000a12f734137a0c8df77f26'
+            'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad'
 
 def test_unicorn_1(benchmark):
     with open('./bench', 'rb') as fd:
