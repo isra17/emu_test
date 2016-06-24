@@ -30,8 +30,8 @@ def call_test_sha256(sb):
 
     sb.run(fva)
 
-    print(sb.jitter.vm.get_mem(result_va, 32).encode('hex'))
-
+    assert sb.jitter.vm.get_mem(result_va, 32).encode('hex') == \
+            'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad'
 
 def test_miasm_python_strcmp(benchmark):
     options = parser.parse_args(['-j','python'])
