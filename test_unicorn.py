@@ -246,7 +246,7 @@ class EmuElf:
         return self.uc.mem_read(addr, size)
 
 
-def call_test1(emu):
+def call_test_strcmp(emu):
     emu.reset_sp()
     emu.push(struct.unpack('<I', 'asd\x00')[0])
     emu.push(emu.sp())
@@ -257,7 +257,7 @@ def call_test1(emu):
     emu.push(emu.sp())
     assert emu.call('test1') != 0
 
-def call_test2(emu):
+def call_test_sha256(emu):
     emu.reset_sp()
     emu.push(struct.unpack('<I', 'abc\x00')[0])
     emu.push(emu.sp())
@@ -265,13 +265,13 @@ def call_test2(emu):
     assert str(emu.read(emu._object_map['result'], 32)).encode('hex') == \
             'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad'
 
-def test_unicorn_1(benchmark):
+def test_unicorn_strcmp(benchmark):
     with open('./bench', 'rb') as fd:
         emu = EmuElf(fd)
-        benchmark(call_test1, emu)
+        benchmark(call_test_strcmp, emu)
 
-def test_unicorn_2(benchmark):
+def test_unicorn_sha256(benchmark):
     with open('./bench', 'rb') as fd:
         emu = EmuElf(fd)
-        benchmark(call_test2, emu)
+        benchmark(call_test_sha256, emu)
 

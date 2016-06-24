@@ -23,17 +23,17 @@ def call_fn(emu, name, args):
     regs = emu.getRegisters()
     return regs['eax']
 
-def call_test_1():
+def call_test_strcmp():
     emu.writeMemory(emu_addr, 'asd\x00')
     assert call_fn(emu, 'bench.test1', [emu_addr]) == 0
 
     emu.writeMemory(emu_addr, 'foo\x00')
     assert call_fn(emu, 'bench.test1', [emu_addr]) != 0
 
-def test_vivisect_1(benchmark):
-    benchmark(call_test_1)
+def test_vivisect_strcmp(benchmark):
+    benchmark(call_test_strcmp)
 
-def call_test_2():
+def call_test_sha256():
     emu.writeMemory(emu_addr, 'abc')
     call_fn(emu, 'bench.test2', [emu_addr])
     result_addr = vw.vaByName('bench.result')
@@ -45,6 +45,6 @@ def call_test_2():
             # as well. Maybe an emulation bug?
             #'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad'
 
-def test_vivisect_2(benchmark):
-    benchmark(call_test_2)
+def test_vivisect_sha256(benchmark):
+    benchmark(call_test_sha256)
 

@@ -9,7 +9,7 @@ def call_bench(fn, p):
     res = fn('foo')
     assert fn.result_state.se.any_int(res) != 0
 
-def test_angr_1(benchmark):
+def test_angr_strcmp(benchmark):
     p = angr.Project('./bench', load_options={'auto_load_libs': False})
     fn_addr = p.loader.main_bin.get_symbol('test1').addr
     cc = p.factory.cc(func_ty=simuvex.s_type.parse_defns('int x(char* data);')['x'])
