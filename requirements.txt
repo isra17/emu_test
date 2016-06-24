@@ -13,8 +13,10 @@ cooldict==1.2
 decorator==4.0.10
 docutils==0.12
 dpkt-fix==1.7
+-e git+git@github.com:serpilliere/elfesteem.git@75834be0286049f64936899938c09fce0692f5fc#egg=ELF_Esteem
 futures==3.0.5
 idalink==0.11
+-e git+git@github.com:cea-sec/miasm.git@214024052d21c325eae7075f8965da5e244704dd#egg=Miasm
 mulpyplexer==0.7
 networkx==1.11
 plumbum==1.6.1.post0
@@ -22,6 +24,7 @@ progressbar==2.3
 py==1.4.31
 pycparser==2.14
 pyelftools==0.23
+pyparsing==2.1.5
 pytest==2.9.1
 pytest-benchmark==3.0.0
 pyvex==4.6.5.27
