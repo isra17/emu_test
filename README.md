@@ -1,6 +1,12 @@
 # Emulation Tests
 This repo contains some tests to benchmark four differents emulation frameworks. The tests emule `strcmp` and `sha256`, although some frameworks are not tested against `sha256` since it is too slow. It is important to note that the author had no previous experience with those framework and some key part might be missing to get better performances. Some framework also provide much more functionnalities than emulation and this simple benchmark does not reflect this.
 
+The benchmarked frameworks are:
+ * [Angr](http://angr.io/)
+ * [Miasm](https://github.com/cea-sec/miasm)
+ * [Unicorn](http://www.unicorn-engine.org/)
+ * [Vivisect](https://github.com/vivisect/vivisect)
+
 ## Running the benchmark
 Simply install all the dependancies and then run the benchmarks with pytest:
 
