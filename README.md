@@ -1,5 +1,5 @@
 # Emulation Tests
-This repo contains some tests to benchmark four differents emulation frameworks. The tests emule `strcmp` and `sha256`, although some frameworks are not tested against `sha256` since it is too slow. It is important to note that the author had no previous experience with those framework and some key part might be missing to get better performances. Some framework also provide much more functionnalities than emulation and this simple benchmark does not reflect this.
+This repo contains some tests to benchmark four differents emulation frameworks. The tests emulate `strcmp` and `sha256`, although some frameworks are not tested against `sha256` since they might be too slow. It is important to note that the author had no previous experience with those frameworks and some key part might be missing to get better performances. Some framework also provide much more functionnalities than emulation and this simple benchmark does not reflect this.
 
 The benchmarked frameworks are:
  * [Angr](http://angr.io/)
