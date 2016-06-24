@@ -134,8 +134,8 @@ class EmuElf:
         # Exit code.
         self.uc.mem_map(0x7f300000, 0x1000, unicorn.UC_PROT_EXEC)
 
-        self.uc.hook_add(unicorn.UC_HOOK_MEM_UNMAPPED, self.on_unmapped)
-        self.uc.hook_add(unicorn.UC_HOOK_INTR, self.on_intr)
+        #self.uc.hook_add(unicorn.UC_HOOK_MEM_UNMAPPED, self.on_unmapped)
+        #self.uc.hook_add(unicorn.UC_HOOK_INTR, self.on_intr)
 
     def on_intr(self, uc, intno, user_data):
         print("On intr: eip: 0x{:x}, eax: 0x{:x}, ebx: 0x{:x}".format(
