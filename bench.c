@@ -226,7 +226,7 @@ void test2(char* data) {
   memset(buf, 0, sizeof(buf));
   memset(result, 0, sizeof(result));
   size_t len = strnlen(data, 31);
-  memcpy(buf, data, len);
+  strncpy((char*)buf, data, len);
   buf[len] = 0x80;
   sha256(result, buf, sizeof(buf));
 }

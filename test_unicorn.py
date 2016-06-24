@@ -1,6 +1,7 @@
 import struct
 import logging
 import unicorn
+import capstone
 from elftools.elf.elffile import ELFFile
 
 PF_E = 0b001
@@ -58,6 +59,67 @@ def create_selector(idx, flags):
     to_ret |= idx << 3
     return to_ret
 
+class UniDebug:
+    REGS_MAPPING = {
+        'eax': unicorn.x86_const.UC_X86_REG_EAX,
+        'ebx': unicorn.x86_const.UC_X86_REG_EBX,
+        'ecx': unicorn.x86_const.UC_X86_REG_ECX,
+        'edx': unicorn.x86_const.UC_X86_REG_EDX,
+        'edi': unicorn.x86_const.UC_X86_REG_EDI,
+        'esi': unicorn.x86_const.UC_X86_REG_ESI,
+        'eip': unicorn.x86_const.UC_X86_REG_EIP,
+        'esp': unicorn.x86_const.UC_X86_REG_ESP,
+        'ebp': unicorn.x86_const.UC_X86_REG_EBP,
+    }
+
+    def __init__(self, emu):
+        self.uc = emu.uc
+        self.uc.hook_add(unicorn.UC_HOOK_CODE, self.on_code)
+        self.cs = capstone.Cs(capstone.CS_ARCH_X86, capstone.CS_MODE_32)
+
+    def on_code(self, handle, address, size, user_data):
+        print("On code: eip: 0x{:x}, ebp: 0x{:x}, esp: 0x{:x}".format(
+            self.uc.reg_read(unicorn.x86_const.UC_X86_REG_EIP),
+            self.uc.reg_read(unicorn.x86_const.UC_X86_REG_EBP),
+            self.uc.reg_read(unicorn.x86_const.UC_X86_REG_ESP)))
+
+        instr = self.uc.mem_read(address, size)
+        disas = self.cs.disasm(bytes(instr), address).next()
+        print("0x{0.address:08x}:\t{0.mnemonic}\t{0.op_str}".format(disas))
+
+        while True:
+            cmd = raw_input('>')
+            if not cmd or cmd == 's':
+                break
+            args = cmd.split(' ')
+            if args[0] == 'x':
+                if args[1] in self.REGS_MAPPING:
+                    reg = self.REGS_MAPPING[args[1]]
+                    addr = self.uc.reg_read(reg)
+                else:
+                    addr = int(args[1], 16)
+                data = None
+                try:
+                    data, = struct.unpack('<I', self.uc.mem_read(addr, 4))
+                except:
+                    pass
+                if data:
+                    print('0x{:08x}: 0x{:08x}'.format(addr, data))
+                else:
+                    print('0x{:08x}'.format(addr))
+            elif args[0] == 'stack':
+                self.dump_stack()
+            else:
+                print('Unknown command')
+
+    def dump_stack(self):
+        sp = self.sp()
+        while sp <= self._sp-4:
+            value, = struct.unpack('<I', self.read(sp, 4))
+            print('0x{:08x}: 0x{:08x}'.format(sp, value))
+            sp += 4
+
+
 class EmuElf:
     def __init__(self, fd):
         self.uc = unicorn.Uc(unicorn.UC_ARCH_X86, unicorn.UC_MODE_32)
@@ -73,7 +135,6 @@ class EmuElf:
         self.uc.mem_map(0x7f300000, 0x1000, unicorn.UC_PROT_EXEC)
 
         self.uc.hook_add(unicorn.UC_HOOK_MEM_UNMAPPED, self.on_unmapped)
-        self.uc.hook_add(unicorn.UC_HOOK_CODE, self.on_code)
         self.uc.hook_add(unicorn.UC_HOOK_INTR, self.on_intr)
 
     def on_intr(self, uc, intno, user_data):
@@ -98,15 +159,6 @@ class EmuElf:
             self.uc.reg_read(unicorn.x86_const.UC_X86_REG_EIP),
             self.uc.reg_read(unicorn.x86_const.UC_X86_REG_EBP),
             self.uc.reg_read(unicorn.x86_const.UC_X86_REG_ESP)))
-        self.dump_stack()
-
-    def on_code(self, *args):
-        print("On code: eip: 0x{:x}, ebp: 0x{:x}, esp: 0x{:x}".format(
-            self.uc.reg_read(unicorn.x86_const.UC_X86_REG_EIP),
-            self.uc.reg_read(unicorn.x86_const.UC_X86_REG_EBP),
-            self.uc.reg_read(unicorn.x86_const.UC_X86_REG_ESP)))
-        if self.uc.reg_read(unicorn.x86_const.UC_X86_REG_EIP) == 0x804be89:
-            self.dump_stack()
 
     def _init_unicorn_from_elf(self, fd):
         for segment in self.elffile.iter_segments():
@@ -193,18 +245,10 @@ class EmuElf:
     def read(self, addr, size):
         return self.uc.mem_read(addr, size)
 
-    def dump_stack(self):
-        sp = self.sp()
-        while sp <= self._sp-4:
-            value, = struct.unpack('<I', self.read(sp, 4))
-            print('0x{:08x}: 0x{:08x}'.format(sp, value))
-            sp += 4
-
 
 def call_test1(emu):
     emu.reset_sp()
     emu.push(struct.unpack('<I', 'asd\x00')[0])
-    emu.push(emu.sp())
     emu.push(emu.sp())
     assert emu.call('test1') == 0
 
@@ -224,6 +268,7 @@ def call_test2(emu):
 def test_unicorn_1(benchmark):
     with open('./bench', 'rb') as fd:
         emu = EmuElf(fd)
+        #UniDebug(emu)
         benchmark(call_test1, emu)
 
 def test_unicorn_2(benchmark):
